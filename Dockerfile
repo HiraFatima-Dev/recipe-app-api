@@ -5,6 +5,7 @@ ENV PYTHONUNBUFFERED 1
 
 COPY ./requirements.txt /tmp/requirements.txt
 COPY ./requirements.dev.txt /tmp/requirements.dev.txt
+COPY ./scripts /scripts
 COPY ./app /app
 WORKDIR /app
 EXPOSE 8000
@@ -15,23 +16,49 @@ ARG DEV=false
 # Each RUN command creates a new layer, allowing Docker to optimize caching and reuse previously built layers
 
 # using multiple commands in single RUN to prevent docker for creating multiple layers.
+
+# RUN python -m venv /py && \
+#     /py/bin/pip install --upgrade pip && \
+#     apk add --update --no-cache postgresql-client jpeg-dev && \
+#     apk add --update --no-cache --virtual .tmp-build-deps \
+#         build-base postgresql-dev musl-dev zlib zlib-dev linux-headers && \
+#     /py/bin/pip install -r /tmp/requirements.txt && \
+#     if [ "$DEV" = "true" ]; then /py/bin/pip install -r /tmp/requirements.dev.txt; fi && \
+#     rm -rf /tmp && \
+#     apk del .tmp-build-deps && \
+#     mkdir -p /vol/web/media && \
+#     mkdir -p /vol/web/static
+
+
+
+
 RUN python -m venv /py && \
+    # /py/bin/pip install --upgrade pip && \
+    # apk add --update --no-cache postgresql-client jpeg-dev && \
+    # apk add --update --no-cache --virtual .tmp-build-deps \
+    #     build-base postgresql-dev musl-dev zlib zlib-dev  linux-header-$(uname -r)  && \
     /py/bin/pip install --upgrade pip && \
-    apk add --update --no-cache postgresql-client && \
+    apk add --update --no-cache postgresql-client jpeg-dev && \
     apk add --update --no-cache --virtual .tmp-build-deps \
-        build-base postgresql-dev musl-dev && \
+    build-base postgresql-dev musl-dev zlib zlib-dev linux-headers && \
     /py/bin/pip install -r /tmp/requirements.txt && \
-    if [ $DEV = "true" ]; \
-        then /py/bin/pip install -r /tmp/requirements.dev.txt ; \
+    if [ '$DEV' = "true" ]; \
+    then /py/bin/pip install -r /tmp/requirements.dev.txt ; \
     fi && \
     # remove the /tmp directory to make the image light weighted.
     rm -rf /tmp \
-    apk del .tmp-build-deps
+    apk del .tmp-build-deps && \
     # Add new user inside docker image. using root user is not recommended.
-#     adduser \
-#         --disabled-password \
-#         --no-create-home \
-#         django-user
+    adduser \
+    --disabled-password \
+    --no-create-home \
+    django-user && \
+    chown -R django-user:django-user /app && \
+    chmod -R 755 /app && \
+    mkdir -p /vol/web/media && \
+    mkdir -p /vol/web/static && \
+    chown -R django-user:django-user /vol && \
+    chmod -R 755 /vol
 
 # # Change ownership of the /app directory to django-user
 # RUN chown -R django-user:django-user /app
@@ -40,8 +67,8 @@ RUN python -m venv /py && \
 
 
 
-ENV PATH="/py/bin:$PATH"
+ENV PATH="/scripts:/py/bin:$PATH"
 
+CMD ["run.sh"]
 
-
-# USER django-user
+USER django-user
